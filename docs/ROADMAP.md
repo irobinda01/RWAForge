@@ -3,7 +3,7 @@
 ## Explicitly out of scope for this MVP
 
 RWAForge does exactly two things: create a token, and purchase a token
-with testnet STX. None of the following are implemented, by design, per
+with testnet STX or sBTC. None of the following are implemented, by design, per
 the project's scope discipline:
 
 - Secondary marketplace / secondary trading
@@ -37,7 +37,16 @@ the project's scope discipline:
   purchase — a buyer can't resell or send their tokens elsewhere in this
   MVP. Adding SIP-010-style `transfer` is straightforward once secondary
   transfer is actually in scope.
-- **No escrow, no protocol fee.** STX goes directly from buyer to creator.
+- **No escrow, no protocol fee.** STX or sBTC goes directly from buyer to
+  creator.
+- **No price oracle or conversion.** A creator sets an STX price and an
+  sBTC price independently (either may be left off). RWAForge doesn't
+  convert between them or track the STX/BTC rate, so the two prices can
+  drift apart as markets move, and a price can't be edited after creation.
+- **sBTC contract is hardcoded per network.** `purchase-with-sbtc` calls a
+  literal sBTC contract principal (testnet today), so a mainnet build needs
+  that literal swapped before deploying — see
+  [DEPLOYMENT.md](./DEPLOYMENT.md#mainnet).
   A future version charging a protocol fee would need a fee-collection
   step and a decision about who's authorized to withdraw it — that's a
   privileged role this MVP deliberately doesn't have yet.
@@ -48,9 +57,10 @@ the project's scope discipline:
   library — see the comment in `eslint.config.mjs` downgrading
   `react-hooks/set-state-in-effect`. TanStack Query or SWR would add
   request deduplication and background refetching.
-- **STX balance pre-checks don't account for network fees precisely** —
-  the purchase form warns on insufficient STX for the purchase price
-  itself, but doesn't fetch a live fee estimate, per the spec's "don't
+- **Balance pre-checks don't account for network fees precisely** —
+  the purchase form warns on insufficient STX or sBTC for the purchase
+  price itself (network fees are always paid in STX, even for an sBTC
+  purchase), but doesn't fetch a live fee estimate, per the spec's "don't
   guarantee exact fee values" guidance.
 
 ## Dormant infrastructure available for a future version

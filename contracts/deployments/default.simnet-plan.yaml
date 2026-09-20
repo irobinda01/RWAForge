@@ -64,38 +64,51 @@ plan:
     - id: 0
       transactions:
         - emulated-contract-publish:
+            contract-name: sbtc-registry
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: ".\\.cache/requirements/ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-registry.clar"
+            clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: sbtc-token
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: ".\\.cache/requirements/ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-token.clar"
+            clarity-version: 3
+      epoch: "3.1"
+    - id: 1
+      transactions:
+        - emulated-contract-publish:
             contract-name: protocol-admin
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\protocol-admin.clar"
+            path: contracts/protocol-admin.clar
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: rwa-registry
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\rwa-registry.clar"
+            path: contracts/rwa-registry.clar
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: compliance-registry
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\compliance-registry.clar"
+            path: contracts/compliance-registry.clar
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: document-registry
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\document-registry.clar"
+            path: contracts/document-registry.clar
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: sip-010-trait
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\sip-010-trait.clar"
+            path: contracts/sip-010-trait.clar
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: rwa-token
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\rwa-token.clar"
+            path: contracts/rwa-token.clar
             clarity-version: 3
         - emulated-contract-publish:
-            contract-name: token-market
+            contract-name: token-market-v2
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\token-market.clar"
+            path: contracts/token-market.clar
             clarity-version: 3
       epoch: "3.2"

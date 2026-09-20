@@ -57,12 +57,14 @@ add.
 ## Request flow for a state-changing action (example: purchasing)
 
 1. User enters a quantity on `/tokens/[id]` and clicks **Purchase Tokens**.
-2. The frontend computes the STX cost client-side (`amount × price`) and
-   checks the connected wallet's STX balance via the Hiro API before
-   prompting the wallet, so an obviously-doomed transaction never reaches
-   the wallet.
-3. `useTransaction` (`apps/web/src/hooks/use-transaction.ts`) builds the
-   unsigned call via `buildPurchaseTx` and hands it to `@stacks/connect`'s
+2. The buyer picks a payment asset (STX or sBTC, among those the token
+   accepts). The frontend computes the cost client-side (`amount × price`
+   in that asset) and checks the connected wallet's balance of it via the
+   Hiro API before prompting the wallet, so an obviously-doomed transaction
+   never reaches the wallet.
+3. `useTransaction` (`apps/web/src/hooks/use-transaction.ts`) runs the
+   unsigned call built by `buildPurchaseTx` (`purchase` or
+   `purchase-with-sbtc`, plus an exact-amount post-condition) and hands it to `@stacks/connect`'s
    `request()`, which prompts the connected wallet (Leather/Xverse).
 4. The same hook drives the UI through `preparing → awaiting-wallet →
    broadcasting → confirming → confirmed | failed` (see

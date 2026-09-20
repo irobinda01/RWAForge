@@ -20,20 +20,29 @@ Domain components live in `src/components/domain/`: `MarketTokenCard`,
 
 ## Pages
 
-- `/` — hero, three-step "how it works", CTA. No fabricated statistics.
-- `/create` — token creation form → summary/confirm step → wallet-signed
-  `create-token` transaction → success screen with a link to the new
+- `/` — hero, three-step "how it works", a "Why sBTC matters for Bitcoin
+  holders" section (`BitcoinHolders`: four benefits, a three-step Bitcoin
+  holder path, and the honest caveats — fees are paid in STX, creators set
+  prices independently, testnet only), CTA. No fabricated statistics.
+- `/create` — token creation form (price in STX, sBTC, or both; leave a
+  price empty to not accept that asset) → summary/confirm step →
+  wallet-signed `create-token` transaction → success screen with a link to the new
   token, only shown after the transaction actually confirms.
-- `/tokens` — live token explorer (`TokensExplorer`), fetched client-side
+- `/tokens` — live token explorer (`TokensExplorer`), with an "Accepts
+  sBTC" filter (`/tokens?asset=sbtc` opens with it on) and an `SbtcBadge`
+  on every token that accepts sBTC. Fetched client-side
   from `getAllMarketTokens()` on mount, with a manual refresh button,
   search, and category filter. Renders the spec-mandated empty state
   ("No tokens have been created yet. Be the first creator on RWAForge.")
   when the registry is empty — never demo/placeholder cards.
 - `/tokens/[id]` — token detail: an "On-Chain Verified" panel (contract,
-  token id, creator, supply, price, network) and a separately labeled
-  "Creator-Provided Information" panel (description, category), plus the
-  purchase form.
-- `/docs` — in-app summary of scope, the on-chain/creator-provided split,
+    token id, creator, supply, price in each accepted asset, network) and a
+  separately labeled "Creator-Provided Information" panel (description,
+  category), plus the purchase form. The form offers a "Pay with" selector
+  (STX / sBTC) when the token accepts both, checks the buyer's balance of
+  the chosen asset, and sends the matching `purchase` or
+  `purchase-with-sbtc` call with an exact-amount post-condition.
+- `/docs` — in-app summary of scope, an "sBTC & Bitcoin Holders" section, the on-chain/creator-provided split,
   and the testnet faucet link.
 
 ## The transaction state machine

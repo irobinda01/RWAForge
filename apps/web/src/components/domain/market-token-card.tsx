@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { AddressDisplay } from "./address-display";
 import { SupplyMeter } from "./supply-meter";
 import { formatTokenAmount } from "@/lib/format";
+import { TokenPrices } from "./token-prices";
+import { SbtcBadge } from "./sbtc-badge";
 
 export function MarketTokenCard({ token }: { token: MarketToken }) {
   const available = BigInt(token.availableSupply);
@@ -28,7 +30,10 @@ export function MarketTokenCard({ token }: { token: MarketToken }) {
                 <ArrowUpRight className="h-4 w-4 shrink-0 text-subtle-foreground opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
               )}
             </div>
-            <Badge variant="outline" className="mt-2">{token.category}</Badge>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline">{token.category}</Badge>
+              <SbtcBadge token={token} />
+            </div>
           </div>
 
           <div className="mt-auto flex flex-col gap-3 border-t border-border pt-4 text-sm">
@@ -36,7 +41,7 @@ export function MarketTokenCard({ token }: { token: MarketToken }) {
               <div>
                 <p className="text-xs text-subtle-foreground">Price</p>
                 <p className="font-mono tabular-nums text-foreground">
-                  {formatTokenAmount(token.priceMicroStx, 6)} STX
+                  <TokenPrices token={token} />
                 </p>
               </div>
               <div>

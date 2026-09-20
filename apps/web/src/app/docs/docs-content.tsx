@@ -10,12 +10,13 @@ import { cn } from "@/lib/utils";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
+  { id: "bitcoin", label: "sBTC & Bitcoin Holders" },
   { id: "data-model", label: "On-Chain vs Creator-Provided" },
   { id: "contracts", label: "Smart Contracts" },
   { id: "architecture", label: "Architecture" },
   { id: "security", label: "Security" },
   { id: "roadmap", label: "Roadmap" },
-  { id: "testnet", label: "Testnet STX" },
+  { id: "testnet", label: "Testnet STX & sBTC" },
 ];
 
 const liveCount = PROTOCOL_CONTRACTS.filter((c) => c.status === "live").length;
@@ -92,7 +93,7 @@ export function DocsContent() {
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
               RWAForge&apos;s MVP intentionally does exactly two things:{" "}
               <strong className="text-foreground">create</strong> a token and{" "}
-              <strong className="text-foreground">purchase</strong> one with testnet STX, both real,
+              <strong className="text-foreground">purchase</strong> one with testnet STX or sBTC, both real,
               wallet-signed, on-chain transactions. But the codebase carries a broader protocol vision
               from an earlier design pass: a compliance-gated issuance platform with per-asset registries,
               investor whitelisting, and document integrity. Those five contracts are still in the repo —
@@ -100,6 +101,71 @@ export function DocsContent() {
               but not deployed or called by the app today. This page is honest about that split: what
               runs, and what&apos;s reference infrastructure for later.
             </p>
+          </section>
+
+          <section id="bitcoin" className="scroll-mt-24">
+            <SectionHeading title="sBTC & Bitcoin Holders" />
+            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+              Most Bitcoin sits in wallets that can&apos;t interact with smart contracts. sBTC is Bitcoin on
+              Stacks: a token backed 1:1 by BTC and redeemable for it. RWAForge lets a token&apos;s creator
+              price it in sBTC, so Bitcoin holders can buy real-world-asset tokens directly, without first
+              converting their holdings into another asset.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Card className="border-primary/20">
+                <CardHeader>
+                  <CardTitle>For Bitcoin holders</CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 pt-0">
+                  <ul className="flex list-disc flex-col gap-2 pl-4 text-sm leading-relaxed text-muted-foreground marker:text-primary">
+                    <li>Pay in sBTC and see prices in sats terms, not a moving STX exchange rate.</li>
+                    <li>Your sBTC goes straight to the creator in the same transaction that delivers your tokens — no escrow, no custodian, no protocol fee.</li>
+                    <li>The wallet shows the exact amount leaving your account, and the transaction aborts if the contract tried to move anything else.</li>
+                    <li>Look for the sBTC badge, or use the &quot;Accepts sBTC&quot; filter on the tokens page.</li>
+                  </ul>
+                </CardContent>
+              </Card>
+              <Card className="border-primary/20">
+                <CardHeader>
+                  <CardTitle>For token creators</CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 pt-0">
+                  <ul className="flex list-disc flex-col gap-2 pl-4 text-sm leading-relaxed text-muted-foreground marker:text-primary">
+                    <li>Price a token in STX, sBTC, or both. Add an sBTC price to open it to Bitcoin holders.</li>
+                    <li>You receive the payment directly in your own wallet, in the asset the buyer chose.</li>
+                    <li>A price of zero means that asset isn&apos;t accepted; at least one price is required.</li>
+                    <li>Prices are fixed at creation and can&apos;t be changed afterwards.</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>Honest caveats</CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 pt-0">
+                <ul className="flex list-disc flex-col gap-2 pl-4 text-sm leading-relaxed text-muted-foreground marker:text-warning">
+                  <li>
+                    <strong className="text-foreground">Fees are paid in STX.</strong> Buying with sBTC means you
+                    don&apos;t need STX to pay for the token, but every Stacks transaction still needs a small
+                    amount of STX for the network fee.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">No conversion or oracle.</strong> The STX and sBTC prices
+                    are independent and set by the creator; RWAForge doesn&apos;t track the STX/BTC rate, so they
+                    can drift apart.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">sBTC has its own risks.</strong> RWAForge&apos;s contract
+                    only calls the sBTC token; it doesn&apos;t audit or control sBTC itself.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Testnet only.</strong> Test sBTC has no real value, and
+                    this MVP has not been audited for mainnet.
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
           </section>
 
           <section id="data-model" className="scroll-mt-24">
@@ -168,7 +234,7 @@ export function DocsContent() {
                   <ol className="flex flex-col gap-3 text-sm text-muted-foreground">
                     {[
                       "User enters a quantity on the token page and clicks Purchase Tokens.",
-                      "The frontend computes the STX cost client-side (amount × price) and checks the connected wallet's STX balance before prompting the wallet.",
+                      "The buyer picks STX or sBTC (whichever the token accepts). The frontend computes the cost client-side (amount × price in that asset) and checks the connected wallet's balance of it before prompting the wallet.",
                       "useTransaction builds the unsigned call and hands it to @stacks/connect, which prompts the wallet (Leather/Xverse).",
                       "The UI walks through preparing → awaiting-wallet → broadcasting → confirming → confirmed | failed, polling the Hiro API for the real status.",
                       "On confirmation, the page re-fetches get-token and get-balance directly from the contract and re-renders.",
@@ -198,9 +264,9 @@ export function DocsContent() {
                   applied — a VM-level guarantee, not something the contract author implements manually.{" "}
                   <code className="rounded bg-surface px-1 py-0.5 font-mono text-xs">purchase</code> relies on this directly: every check runs before any
                   balance mutation, so a failure at any point — token not found, invalid amount,
-                  self-purchase, insufficient supply, or a failed STX transfer — leaves every map exactly
-                  as it was. The 21 tests in <code className="rounded bg-surface px-1 py-0.5 font-mono text-xs">token-market.test.ts</code> include
-                  explicit before/after STX balance assertions proving the payment actually moves on a
+                  self-purchase, insufficient supply, an unaccepted payment asset, or a failed STX or sBTC transfer — leaves every map exactly
+                  as it was. The 32 tests in <code className="rounded bg-surface px-1 py-0.5 font-mono text-xs">token-market.test.ts</code> include
+                  explicit before/after STX and sBTC balance assertions proving the payment actually moves on a
                   successful call.
                 </CardContent>
               </Card>
@@ -213,7 +279,7 @@ export function DocsContent() {
                   <code className="rounded bg-surface px-1 py-0.5 font-mono text-xs">rwa-token.clar</code> pair, which had an
                   emergency pause and issuer mint/burn, <code className="rounded bg-surface px-1 py-0.5 font-mono text-xs">token-market.clar</code> has
                   no privileged account of any kind — no <code className="rounded bg-surface px-1 py-0.5 font-mono text-xs">set-*-admin</code>, no pause
-                  switch, no fee. STX only ever moves buyer → creator, for the exact amount computed from
+                  switch, no fee. STX or sBTC only ever moves buyer → creator, for the exact amount computed from
                   on-chain state.
                 </CardContent>
               </Card>
@@ -225,7 +291,7 @@ export function DocsContent() {
                   There is no server-side signing and no API route at all — every mutating action is built
                   as an unsigned transaction and handed to the user&apos;s own wallet extension. All state
                   is re-read from the chain after a transaction confirms, never inferred or optimistically
-                  patched. STX balance pre-checks in the purchase form are advisory only; the contract&apos;s
+                  patched. Balance pre-checks in the purchase form are advisory only; the contract&apos;s
                   own transfer call is the real enforcement point.
                 </CardContent>
               </Card>
@@ -246,7 +312,7 @@ export function DocsContent() {
           </section>
 
           <section id="testnet" className="scroll-mt-24">
-            <SectionHeading title="Getting Testnet STX" />
+            <SectionHeading title="Getting Testnet STX & sBTC" />
             <Card>
               <CardContent className="p-5 text-sm leading-relaxed text-muted-foreground">
                 You need Stacks <strong className="text-foreground">Testnet</strong> STX, not real STX, to

@@ -10,7 +10,22 @@ including serverless/edge hosts.
 You need [Clarinet](https://docs.hiro.so/clarinet) 3.x and a Stacks
 **Testnet** account funded with testnet STX (get some from the
 [Hiro Stacks Testnet faucet](https://explorer.hiro.so/sandbox/faucet?chain=testnet)
-— this is test currency, not real money).
+— this is test currency, not real money). The same faucet can send testnet
+sBTC, which you'll want later to test sBTC purchases from a second wallet.
+
+`token-market` calls the existing Testnet sBTC token
+(`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-token`), which is already
+on-chain, so there is nothing sBTC-related to deploy. `Clarinet.toml`
+declares it as a `[[project.requirements]]` entry so `clarinet check` and
+the simnet tests can resolve it; Clarinet downloads it into `.cache/` the
+first time you run either (this needs network access).
+
+**Contract names are unique per account and contracts are immutable**, so a
+changed contract can't be redeployed under a name you've already used. This
+repo registers the contract as `token-market-v2` in `Clarinet.toml` (the
+source file is still `token-market.clar`); bump the suffix (or use a fresh
+account) for the next incompatible change, and update
+`NEXT_PUBLIC_MARKET_CONTRACT_ID` to match.
 
 RWAForge never asks for or transmits your mnemonic/private key anywhere in
 this repo or its tooling. `contracts/settings/Testnet.toml` is gitignored
@@ -32,7 +47,7 @@ This produces `deployments/default.testnet-plan.yaml` with one
 the MVP's `token-market`, plus the five legacy/dormant contracts kept in
 this repo but unused by the MVP frontend (see
 [SMART-CONTRACTS.md](./SMART-CONTRACTS.md)). **Edit the file down to just
-`token-market`** so you don't spend testnet STX deploying contracts nothing
+`token-market-v2`**, and delete any `requirement-publish` entries for the sBTC contracts (the real one is already on Testnet) so you don't spend testnet STX deploying contracts nothing
 in the app calls. The trimmed file should look like this (your
 `expected-sender` and `cost` will differ):
 
@@ -96,8 +111,10 @@ wallet, and create a token — it should appear at `/tokens` and
    on the success screen.
 2. The token appears at `/tokens` and its own `/tokens/<id>` page, with
    fields read live from the contract (not cached anywhere).
-3. Wallet B connects, opens the same token, enters a quantity, and
-   purchases it. Confirm the purchase transaction on the explorer.
+3. Wallet B connects, opens the same token, picks a payment asset (STX,
+   or sBTC if the creator priced the token in it — fund Wallet B with
+   testnet sBTC from the faucet first), enters a quantity, and purchases
+   it. Confirm the purchase transaction on the explorer.
 4. `/tokens/<id>` now shows decreased available supply, and Wallet B's
    balance (visible on the token page when connected) reflects the
    purchase. All of this is read directly from `get-token` / `get-balance`
@@ -122,8 +139,20 @@ rebuild/redeploy.
 
 ## Mainnet
 
-Nothing in the contract or frontend is testnet-specific beyond the network
-selector (`NEXT_PUBLIC_STACKS_NETWORK=mainnet`) and using
-`clarinet deployments generate --mainnet` with a funded mainnet account.
+Two things are testnet-specific beyond the network selector
+(`NEXT_PUBLIC_STACKS_NETWORK=mainnet`) and using
+`clarinet deployments generate --mainnet` with a funded mainnet account:
+
+1. **The sBTC contract literal.** Clarity resolves `contract-call?` targets
+   statically, so `purchase-with-sbtc` in `token-market.clar` names the
+   Testnet sBTC token directly. Before a mainnet deploy, replace
+   `ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-token` with
+   `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` in that file
+   (a testnet address won't even deploy on mainnet).
+2. **The frontend's sBTC contract id**, `getSbtcContractId` in
+   `packages/stacks/src/config.ts`, already switches on
+   `NEXT_PUBLIC_STACKS_NETWORK`, so it needs no change — but it must
+   agree with the literal above.
+
 This MVP has not been deployed to or audited for mainnet — see
 [ROADMAP.md](./ROADMAP.md).

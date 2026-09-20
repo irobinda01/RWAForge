@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Check, PartyPopper, Sparkles } from "lucide-react";
-import { TOKEN_CATEGORIES, type TokenCategory } from "@rwaforge/types";
+import { ArrowLeft, Bitcoin, Check, PartyPopper, Sparkles } from "lucide-react";
+import { PAYMENT_ASSETS, TOKEN_CATEGORIES, type PaymentAsset, type TokenCategory } from "@rwaforge/types";
 import { buildCreateTokenTx, getConfirmedTxResult } from "@rwaforge/stacks";
 import { useWallet } from "@/components/providers/wallet-provider";
 import { useTransaction } from "@/hooks/use-transaction";
@@ -22,6 +22,7 @@ import { TransactionStatus } from "@/components/domain/transaction-status";
 import { TransactionLink } from "@/components/domain/transaction-link";
 import { CATEGORY_ICONS } from "@/lib/categories";
 import { toBaseUnits } from "@/lib/format";
+import { ASSET_DECIMALS, baseUnitsToNumber } from "@/lib/payment";
 import { cn } from "@/lib/utils";
 
 type Step = "form" | "confirm" | "success";
@@ -37,18 +38,21 @@ export default function CreateTokenPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<TokenCategory>("Real Estate");
   const [totalSupply, setTotalSupply] = useState("");
-  const [price, setPrice] = useState("");
+  const [priceStx, setPriceStx] = useState("");
+  const [priceSbtc, setPriceSbtc] = useState("");
 
-  const errors = validate({ name, symbol, description, totalSupply, price });
+  const errors = validate({ name, symbol, description, totalSupply, priceStx, priceSbtc });
   const isValid = Object.keys(errors).length === 0;
   const busy = state === "awaiting-wallet" || state === "broadcasting" || state === "confirming";
 
   async function handleCreate() {
     if (!isValid) return;
     const totalSupplyUnits = BigInt(totalSupply.trim());
-    const priceMicroStx = toBaseUnits(price.trim(), 6);
+    // An empty price field means "this asset isn't accepted" (price 0 on-chain).
+    const priceMicroStx = priceStx.trim() ? toBaseUnits(priceStx.trim(), ASSET_DECIMALS.STX) : 0n;
+    const priceSats = priceSbtc.trim() ? toBaseUnits(priceSbtc.trim(), ASSET_DECIMALS.sBTC) : 0n;
     const outcome = await runContractCall(
-      buildCreateTokenTx({ name, symbol, description, category, totalSupply: totalSupplyUnits, priceMicroStx }),
+      buildCreateTokenTx({ name, symbol, description, category, totalSupply: totalSupplyUnits, priceMicroStx, priceSats }),
     );
     if (!outcome) return;
     const txResult = await getConfirmedTxResult(outcome.txId);
@@ -141,7 +145,8 @@ export default function CreateTokenPage() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           This deploys a real token record on the RWAForge token-market contract via a single
-          wallet-signed Stacks Testnet transaction.
+          wallet-signed Stacks Testnet transaction. Price it in STX, sBTC, or both — buyers pay in
+          whichever you accept.
         </p>
         <StepIndicator step={step} />
       </div>
@@ -181,18 +186,54 @@ export default function CreateTokenPage() {
                     <Field label="Category">
                       <CategoryPicker value={category} onChange={setCategory} />
                     </Field>
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field label="Total Supply" error={errors.totalSupply} valid={!errors.totalSupply && totalSupply.trim().length > 0}>
-                        <Input
-                          inputMode="numeric"
-                          value={totalSupply}
-                          onChange={(e) => setTotalSupply(e.target.value)}
-                          placeholder="100000"
-                        />
-                      </Field>
-                      <Field label="Price / Token (STX)" error={errors.price} valid={!errors.price && price.trim().length > 0}>
-                        <Input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="1" />
-                      </Field>
+                    <Field label="Total Supply" error={errors.totalSupply} valid={!errors.totalSupply && totalSupply.trim().length > 0}>
+                      <Input
+                        inputMode="numeric"
+                        value={totalSupply}
+                        onChange={(e) => setTotalSupply(e.target.value)}
+                        placeholder="100000"
+                      />
+                    </Field>
+                    <div>
+                      <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary-muted px-3.5 py-3">
+                        <Bitcoin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                        <div className="text-xs leading-relaxed text-muted-foreground">
+                          <p className="font-medium text-foreground">Accept sBTC to reach Bitcoin holders</p>
+                          <p className="mt-0.5">
+                            Set a price in STX, sBTC, or both, and buyers pay in whichever they hold. An sBTC
+                            price lets Bitcoin holders buy your token without converting to another asset first.
+                            Leave a price empty to not accept that asset. Each price is exactly what you enter —
+                            RWAForge doesn&apos;t convert between them.
+                          </p>
+                          {priceStx.trim() && !priceSbtc.trim() && (
+                            <p className="mt-1.5 text-primary">
+                              Tip: this token is STX-only right now — add an sBTC price to open it to Bitcoin holders.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field
+                          label="Price / Token (STX)"
+                          error={errors.priceStx}
+                          valid={!errors.priceStx && priceStx.trim().length > 0}
+                        >
+                          <Input inputMode="decimal" value={priceStx} onChange={(e) => setPriceStx(e.target.value)} placeholder="1" />
+                        </Field>
+                        <Field
+                          label="Price / Token (sBTC)"
+                          error={errors.priceSbtc}
+                          valid={!errors.priceSbtc && priceSbtc.trim().length > 0}
+                        >
+                          <Input
+                            inputMode="decimal"
+                            value={priceSbtc}
+                            onChange={(e) => setPriceSbtc(e.target.value)}
+                            placeholder="0.00001"
+                          />
+                        </Field>
+                      </div>
+                      {errors.price && <p className="mt-1.5 text-xs text-destructive">{errors.price}</p>}
                     </div>
 
                     <Button size="lg" disabled={!isValid} onClick={() => setStep("confirm")} className="group">
@@ -215,7 +256,8 @@ export default function CreateTokenPage() {
                     <SummaryRow label="Symbol" value={symbol} />
                     <SummaryRow label="Category" value={category} />
                     <SummaryRow label="Supply" value={Number(totalSupply).toLocaleString("en-US")} />
-                    <SummaryRow label="Price" value={`${price} STX`} />
+                    {priceStx.trim() && <SummaryRow label="Price (STX)" value={`${priceStx.trim()} STX`} />}
+                    {priceSbtc.trim() && <SummaryRow label="Price (sBTC)" value={`${priceSbtc.trim()} sBTC`} />}
                     <SummaryRow label="Network" value="Stacks Testnet" />
 
                     <Button size="lg" onClick={() => void handleCreate()} disabled={busy}>
@@ -232,7 +274,14 @@ export default function CreateTokenPage() {
 
         <div className="lg:sticky lg:top-24 lg:col-span-2">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-subtle-foreground">Live preview</p>
-          <TokenPreviewCard name={name} symbol={symbol} category={category} totalSupply={totalSupply} price={price} />
+          <TokenPreviewCard
+            name={name}
+            symbol={symbol}
+            category={category}
+            totalSupply={totalSupply}
+            priceStx={priceStx}
+            priceSbtc={priceSbtc}
+          />
         </div>
       </div>
     </div>
@@ -244,23 +293,28 @@ function TokenPreviewCard({
   symbol,
   category,
   totalSupply,
-  price,
+  priceStx,
+  priceSbtc,
 }: {
   name: string;
   symbol: string;
   category: string;
   totalSupply: string;
-  price: string;
+  priceStx: string;
+  priceSbtc: string;
 }) {
   const rawSupply = Number(totalSupply.replace(/[^\d]/g, "")) || 0;
   const meterSupply = rawSupply || 1;
-  const priceMicro = Math.round((Number(price) || 0) * 1_000_000);
-  const hasPricing = rawSupply > 0 && priceMicro > 0;
-  const listingValueMicro = meterSupply * priceMicro;
+  // Price per token in each asset's base unit; 0 = not accepted (or not yet valid).
+  const prices: Record<PaymentAsset, number> = {
+    STX: Math.round((Number(priceStx) || 0) * 10 ** ASSET_DECIMALS.STX),
+    sBTC: Math.round((Number(priceSbtc) || 0) * 10 ** ASSET_DECIMALS.sBTC),
+  };
+  const shownAssets = PAYMENT_ASSETS.filter((asset) => prices[asset] > 0 && rawSupply > 0);
+  const enteredAssets = PAYMENT_ASSETS.filter((asset) => prices[asset] > 0);
 
   const [simAmount, setSimAmount] = useState(100);
   const simClamped = rawSupply > 0 ? Math.min(simAmount, rawSupply) : 0;
-  const simCostMicro = simClamped * priceMicro;
 
   return (
     <Card className="overflow-hidden border-primary/20 bg-linear-to-b from-card to-surface">
@@ -278,7 +332,15 @@ function TokenPreviewCard({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-xs text-subtle-foreground">Price</p>
-              <p className="font-mono tabular-nums text-foreground">{price ? `${price} STX` : "—"}</p>
+              <p className="font-mono tabular-nums text-foreground">
+                {enteredAssets.length > 0
+                  ? enteredAssets.map((asset) => (
+                      <span key={asset} className="block">
+                        {asset === "STX" ? priceStx.trim() : priceSbtc.trim()} {asset}
+                      </span>
+                    ))
+                  : "—"}
+              </p>
             </div>
             <div>
               <p className="text-xs text-subtle-foreground">Total Supply</p>
@@ -289,17 +351,17 @@ function TokenPreviewCard({
           <div className="rounded-lg border border-border bg-surface/60 p-3">
             <p className="text-xs text-subtle-foreground">Total listing value</p>
             <p className="font-mono text-base tabular-nums text-foreground">
-              {hasPricing ? (
-                <>
-                  <AnimatedNumber
-                    value={listingValueMicro}
-                    format={(n) => (n / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 6 })}
-                  />{" "}
-                  STX
-                </>
-              ) : (
-                "—"
-              )}
+              {shownAssets.length > 0
+                ? shownAssets.map((asset) => (
+                    <span key={asset} className="block">
+                      <AnimatedNumber
+                        value={rawSupply * prices[asset]}
+                        format={(n) => baseUnitsToNumber(n, asset).toLocaleString("en-US", { maximumFractionDigits: ASSET_DECIMALS[asset] })}
+                      />{" "}
+                      {asset}
+                    </span>
+                  ))
+                : "—"}
             </p>
             <p className="mt-0.5 text-[11px] text-subtle-foreground">Total supply × price, if every token sold.</p>
           </div>
@@ -320,17 +382,17 @@ function TokenPreviewCard({
             aria-label="Simulate a purchase amount"
           />
           <p className="mt-2 text-right font-mono text-sm tabular-nums text-foreground">
-            {hasPricing ? (
-              <>
-                <AnimatedNumber
-                  value={simCostMicro}
-                  format={(n) => (n / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 6 })}
-                />{" "}
-                STX
-              </>
-            ) : (
-              "—"
-            )}
+            {shownAssets.length > 0
+              ? shownAssets.map((asset) => (
+                  <span key={asset} className="block">
+                    <AnimatedNumber
+                      value={simClamped * prices[asset]}
+                      format={(n) => baseUnitsToNumber(n, asset).toLocaleString("en-US", { maximumFractionDigits: ASSET_DECIMALS[asset] })}
+                    />{" "}
+                    {asset}
+                  </span>
+                ))
+              : "—"}
           </p>
         </div>
 
@@ -490,7 +552,14 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 const ASCII_ONLY = /^[\x20-\x7E]*$/;
 
-function validate(fields: { name: string; symbol: string; description: string; totalSupply: string; price: string }) {
+function validate(fields: {
+  name: string;
+  symbol: string;
+  description: string;
+  totalSupply: string;
+  priceStx: string;
+  priceSbtc: string;
+}) {
   const errors: Record<string, string> = {};
   if (!fields.name.trim()) errors.name = "Token name is required.";
   else if (!ASCII_ONLY.test(fields.name)) errors.name = "Use standard letters, numbers, and punctuation only.";
@@ -501,8 +570,22 @@ function validate(fields: { name: string; symbol: string; description: string; t
   if (!/^\d+$/.test(fields.totalSupply.trim()) || BigInt(fields.totalSupply.trim() || "0") <= 0n) {
     errors.totalSupply = "Enter a whole number greater than zero.";
   }
-  if (!/^\d*\.?\d+$/.test(fields.price.trim()) || Number(fields.price) <= 0) {
-    errors.price = "Enter a price greater than zero.";
-  }
+
+  const stxError = validatePrice(fields.priceStx, "STX");
+  const sbtcError = validatePrice(fields.priceSbtc, "sBTC");
+  if (stxError) errors.priceStx = stxError;
+  if (sbtcError) errors.priceSbtc = sbtcError;
+  if (!fields.priceStx.trim() && !fields.priceSbtc.trim()) errors.price = "Set a price in STX, sBTC, or both.";
   return errors;
+}
+
+/** A price is optional (empty = asset not accepted), but if present it must be a positive amount the asset's base unit can represent. */
+function validatePrice(raw: string, asset: PaymentAsset): string | undefined {
+  const value = raw.trim();
+  if (!value) return undefined;
+  if (!/^\d*\.?\d+$/.test(value)) return "Enter a price greater than zero.";
+  const decimals = ASSET_DECIMALS[asset];
+  if ((value.split(".")[1]?.length ?? 0) > decimals) return `${asset} supports up to ${decimals} decimal places.`;
+  if (toBaseUnits(value, decimals) <= 0n) return "Enter a price greater than zero.";
+  return undefined;
 }

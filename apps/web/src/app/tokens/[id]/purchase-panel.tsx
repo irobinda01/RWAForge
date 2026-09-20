@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Minus, Plus, ShoppingCart } from "lucide-react";
-import type { MarketToken } from "@rwaforge/types";
-import { buildPurchaseTx, getStxBalance } from "@rwaforge/stacks";
+import { Bitcoin, Minus, Plus, ShoppingCart } from "lucide-react";
+import type { MarketToken, PaymentAsset } from "@rwaforge/types";
+import { buildPurchaseTx, getSbtcBalance, getStxBalance } from "@rwaforge/stacks";
 import { useWallet } from "@/components/providers/wallet-provider";
 import { useTransaction } from "@/hooks/use-transaction";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { TransactionStatus } from "@/components/domain/transaction-status";
 import { EmptyState } from "@/components/domain/empty-state";
 import { AnimatedNumber } from "@/components/domain/animated-number";
 import { formatTokenAmount } from "@/lib/format";
+import { acceptedAssets, ASSET_DECIMALS, baseUnitsToNumber, priceIn } from "@/lib/payment";
 import { cn } from "@/lib/utils";
 
 const QUICK_FRACTIONS = [
@@ -26,14 +27,17 @@ export function PurchasePanel({ token, onPurchased }: { token: MarketToken; onPu
   const { session, connectWallet, connecting } = useWallet();
   const { state, error, txId, runContractCall, reset } = useTransaction();
   const [amountInput, setAmountInput] = useState("");
-  const [insufficientStx, setInsufficientStx] = useState(false);
+  const assets = acceptedAssets(token);
+  const [asset, setAsset] = useState<PaymentAsset>(assets[0] ?? "STX");
+  const [insufficientFunds, setInsufficientFunds] = useState(false);
   const [checkingBalance, setCheckingBalance] = useState(false);
 
   const soldOut = token.availableSupply === "0";
   const isOwnToken = session?.address === token.creator;
 
   const available = BigInt(token.availableSupply);
-  const price = BigInt(token.priceMicroStx);
+  const decimals = ASSET_DECIMALS[asset];
+  const price = priceIn(token, asset);
 
   const amount = useMemo(() => {
     if (!/^\d+$/.test(amountInput.trim())) return null;
@@ -61,7 +65,13 @@ export function PurchasePanel({ token, onPurchased }: { token: MarketToken; onPu
   function setAmount(next: bigint) {
     const clamped = next < 0n ? 0n : next > available ? available : next;
     setAmountInput(clamped === 0n ? "" : clamped.toString());
-    setInsufficientStx(false);
+    setInsufficientFunds(false);
+    if (state !== "idle") reset();
+  }
+
+  function selectAsset(next: PaymentAsset) {
+    setAsset(next);
+    setInsufficientFunds(false);
     if (state !== "idle") reset();
   }
 
@@ -75,14 +85,17 @@ export function PurchasePanel({ token, onPurchased }: { token: MarketToken; onPu
   async function handlePurchase() {
     if (!session || amount === null || validationError) return;
     setCheckingBalance(true);
-    const stxBalance = await getStxBalance(session.address);
+    const balance = asset === "STX" ? await getStxBalance(session.address) : await getSbtcBalance(session.address);
     setCheckingBalance(false);
-    if (stxBalance !== null && cost !== null && stxBalance < cost) {
-      setInsufficientStx(true);
+    if (balance !== null && cost !== null && balance < cost) {
+      setInsufficientFunds(true);
       return;
     }
-    setInsufficientStx(false);
-    const outcome = await runContractCall(buildPurchaseTx({ tokenId: token.id, amount }));
+    setInsufficientFunds(false);
+    if (cost === null) return;
+    const outcome = await runContractCall(
+      buildPurchaseTx({ tokenId: token.id, amount, asset, buyer: session.address, cost }),
+    );
     if (outcome) {
       onPurchased();
     }
@@ -120,6 +133,48 @@ export function PurchasePanel({ token, onPurchased }: { token: MarketToken; onPu
         ) : (
           <>
             <div>
+              <Label>Pay with</Label>
+              {assets.length > 1 ? (
+                <div className="mt-1.5 grid grid-cols-2 gap-2" role="group" aria-label="Payment asset">
+                  {assets.map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => selectAsset(a)}
+                      aria-pressed={a === asset}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                        a === asset
+                          ? "border-primary/50 bg-primary-muted text-primary"
+                          : "border-border-strong text-muted-foreground hover:bg-surface-raised hover:text-foreground",
+                      )}
+                    >
+                      {a}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1.5 text-sm text-foreground">
+                  {asset} <span className="text-xs text-subtle-foreground">— the only asset this token accepts</span>
+                </p>
+              )}
+              {asset === "sBTC" ? (
+                <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-primary/20 bg-primary-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                  <Bitcoin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                  <span>
+                    <strong className="text-foreground">Paying with Bitcoin-backed sBTC.</strong> It goes straight
+                    to the creator in the same transaction that delivers your tokens — no swap into STX. The
+                    network fee is still paid in a small amount of STX.
+                  </span>
+                </p>
+              ) : assets.length === 1 ? (
+                <p className="mt-2 text-xs text-subtle-foreground">
+                  Holding Bitcoin? This creator hasn&apos;t enabled sBTC for this token yet.
+                </p>
+              ) : null}
+            </div>
+
+            <div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="amount">Amount</Label>
                 <div className="flex gap-1">
@@ -154,7 +209,7 @@ export function PurchasePanel({ token, onPurchased }: { token: MarketToken; onPu
                   value={amountInput}
                   onChange={(e) => {
                     setAmountInput(e.target.value.replace(/[^\d]/g, ""));
-                    setInsufficientStx(false);
+                    setInsufficientFunds(false);
                     if (state !== "idle") reset();
                   }}
                   className="text-center"
@@ -187,7 +242,9 @@ export function PurchasePanel({ token, onPurchased }: { token: MarketToken; onPu
             <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface/60 p-4 text-sm">
               <div>
                 <p className="text-xs text-subtle-foreground">Price</p>
-                <p className="font-mono text-foreground">{formatTokenAmount(token.priceMicroStx, 6)} STX</p>
+                <p className="font-mono text-foreground">
+                  {formatTokenAmount(price, decimals)} {asset}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-subtle-foreground">Total</p>
@@ -196,9 +253,11 @@ export function PurchasePanel({ token, onPurchased }: { token: MarketToken; onPu
                     <>
                       <AnimatedNumber
                         value={costNumber}
-                        format={(n) => (n / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 6 })}
+                        format={(n) =>
+                          baseUnitsToNumber(n, asset).toLocaleString("en-US", { maximumFractionDigits: decimals })
+                        }
                       />{" "}
-                      STX
+                      {asset}
                     </>
                   ) : (
                     "—"
@@ -207,9 +266,9 @@ export function PurchasePanel({ token, onPurchased }: { token: MarketToken; onPu
               </div>
             </div>
 
-            {insufficientStx && (
+            {insufficientFunds && (
               <p className="text-xs text-destructive">
-                Insufficient testnet STX balance to cover this purchase. Get testnet STX from the faucet linked in the docs.
+                Insufficient testnet {asset} balance to cover this purchase. Get testnet {asset} from the faucet linked in the docs.
               </p>
             )}
 

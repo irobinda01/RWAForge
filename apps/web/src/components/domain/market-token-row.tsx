@@ -6,6 +6,8 @@ import { AddressDisplay } from "./address-display";
 import { SupplyMeter } from "./supply-meter";
 import { CATEGORY_ICONS } from "@/lib/categories";
 import { formatTokenAmount } from "@/lib/format";
+import { TokenPrices } from "./token-prices";
+import { SbtcBadge } from "./sbtc-badge";
 
 export function MarketTokenRow({ token }: { token: MarketToken }) {
   const available = BigInt(token.availableSupply);
@@ -26,13 +28,16 @@ export function MarketTokenRow({ token }: { token: MarketToken }) {
           </div>
         </div>
 
-        <div className="sm:w-32 sm:shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 sm:w-40 sm:shrink-0">
           <Badge variant="outline">{token.category}</Badge>
+          <SbtcBadge token={token} />
         </div>
 
-        <div className="sm:w-28 sm:shrink-0">
+        <div className="sm:w-36 sm:shrink-0">
           <p className="text-[11px] text-subtle-foreground">Price</p>
-          <p className="font-mono text-sm tabular-nums text-foreground">{formatTokenAmount(token.priceMicroStx, 6)} STX</p>
+          <p className="font-mono text-sm tabular-nums text-foreground">
+            <TokenPrices token={token} />
+          </p>
         </div>
 
         <div className="flex-1">

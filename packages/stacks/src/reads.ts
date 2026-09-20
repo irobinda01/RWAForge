@@ -1,6 +1,6 @@
 import { Cl, cvToJSON, fetchCallReadOnlyFunction } from "@stacks/transactions";
 import type { MarketToken, StacksNetworkName } from "@rwaforge/types";
-import { getMarketContractId, parseContractId } from "./config";
+import { getMarketContractId, getSbtcContractId, parseContractId } from "./config";
 import { getHiroApiUrl, getStacksNetworkObject, resolveNetworkName } from "./network";
 import {
   fBigUint,
@@ -41,7 +41,8 @@ function toMarketToken(tokenId: number, tuple: CVJson, network: StacksNetworkNam
     category: fString(f, "category"),
     totalSupply: fBigUint(f, "total-supply").toString(),
     availableSupply: fBigUint(f, "available-supply").toString(),
-    priceMicroStx: fBigUint(f, "price").toString(),
+    priceMicroStx: fBigUint(f, "price-stx").toString(),
+    priceSats: fBigUint(f, "price-sbtc").toString(),
     createdAtBlock: fUint(f, "created-at"),
     network,
   };
@@ -114,4 +115,20 @@ export async function getStxBalance(
   const json = (await res.json()) as { balance?: string };
   if (!json.balance) return null;
   return BigInt(json.balance);
+}
+
+/** Confirmed sBTC balance (in sats) for a wallet, via the Hiro API. */
+export async function getSbtcBalance(
+  address: string,
+  network: StacksNetworkName = resolveNetworkName(),
+): Promise<bigint | null> {
+  const res = await fetch(`${getHiroApiUrl(network)}/extended/v1/address/${address}/balances`, {
+    cache: "no-store",
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  const json = (await res.json()) as { fungible_tokens?: Record<string, { balance?: string }> };
+  // The API keys fungible tokens as "<contract-id>::<token-name>"; a wallet
+  // that has never held sBTC simply has no entry.
+  const entry = json.fungible_tokens?.[`${getSbtcContractId(network)}::sbtc-token`];
+  return BigInt(entry?.balance ?? "0");
 }

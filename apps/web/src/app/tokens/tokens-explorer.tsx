@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LayoutGrid, List, RefreshCw, Search, Sparkles } from "lucide-react";
+import { Bitcoin, LayoutGrid, List, RefreshCw, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import type { LucideIcon } from "lucide-react";
 import type { MarketToken } from "@rwaforge/types";
@@ -15,6 +16,7 @@ import { EmptyState } from "@/components/domain/empty-state";
 import { MarketTokenCard } from "@/components/domain/market-token-card";
 import { MarketTokenRow } from "@/components/domain/market-token-row";
 import { AnimatedNumber } from "@/components/domain/animated-number";
+import { acceptsSbtc } from "@/components/domain/sbtc-badge";
 import { CATEGORY_ICONS } from "@/lib/categories";
 import { formatTokenAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -24,8 +26,8 @@ type ViewMode = "grid" | "list";
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "newest", label: "Newest first" },
-  { value: "price-asc", label: "Price: low to high" },
-  { value: "price-desc", label: "Price: high to low" },
+  { value: "price-asc", label: "Price (STX): low to high" },
+  { value: "price-desc", label: "Price (STX): high to low" },
   { value: "available-desc", label: "Most available" },
 ];
 
@@ -46,6 +48,9 @@ export function TokensExplorer() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  // Deep link from the homepage: /tokens?asset=sbtc opens with the sBTC filter on.
+  const searchParams = useSearchParams();
+  const [sbtcOnly, setSbtcOnly] = useState(searchParams.get("asset") === "sbtc");
   const [sort, setSort] = useState<SortKey>("newest");
   const [view, setView] = useState<ViewMode>("grid");
 
@@ -72,6 +77,8 @@ export function TokensExplorer() {
     void load();
   }, []);
 
+  const sbtcCount = useMemo(() => tokens.filter(acceptsSbtc).length, [tokens]);
+
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const t of tokens) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
@@ -80,23 +87,31 @@ export function TokensExplorer() {
 
   const stats = useMemo(() => {
     const soldOut = tokens.filter((t) => t.availableSupply === "0").length;
-    const totalValue = tokens.reduce((sum, t) => sum + BigInt(t.totalSupply) * BigInt(t.priceMicroStx), 0n);
+    // STX and sBTC can't be added together, so listing value is one total per asset.
+    const totalValueStx = tokens.reduce((sum, t) => sum + BigInt(t.totalSupply) * BigInt(t.priceMicroStx), 0n);
+    const totalValueSats = tokens.reduce((sum, t) => sum + BigInt(t.totalSupply) * BigInt(t.priceSats), 0n);
     const categoriesLive = new Set(tokens.map((t) => t.category)).size;
-    return { soldOut, totalValue, categoriesLive };
+    return { soldOut, totalValueStx, totalValueSats, categoriesLive };
   }, [tokens]);
 
   const filtered = useMemo(() => {
     const result = tokens.filter((t) => {
       if (!matchesQuery(t, query)) return false;
       if (category !== "all" && t.category !== category) return false;
+      if (sbtcOnly && !acceptsSbtc(t)) return false;
       return true;
     });
     return result.sort((a, b) => {
       switch (sort) {
+        // Prices are compared in STX; sBTC-only tokens have no STX price
+        // and sort last in either direction.
         case "price-asc":
-          return Number(BigInt(a.priceMicroStx) - BigInt(b.priceMicroStx));
-        case "price-desc":
-          return Number(BigInt(b.priceMicroStx) - BigInt(a.priceMicroStx));
+        case "price-desc": {
+          const priceA = BigInt(a.priceMicroStx);
+          const priceB = BigInt(b.priceMicroStx);
+          if (priceA === 0n || priceB === 0n) return priceA === priceB ? b.id - a.id : priceA === 0n ? 1 : -1;
+          return Number(sort === "price-asc" ? priceA - priceB : priceB - priceA);
+        }
         case "available-desc":
           return Number(BigInt(b.availableSupply) - BigInt(a.availableSupply));
         case "newest":
@@ -104,7 +119,7 @@ export function TokensExplorer() {
           return b.id - a.id;
       }
     });
-  }, [tokens, query, category, sort]);
+  }, [tokens, query, category, sort, sbtcOnly]);
 
   if (loading) {
     return (
@@ -155,7 +170,8 @@ export function TokensExplorer() {
           <AnimatedNumber value={stats.soldOut} />
         </StatTile>
         <StatTile label="Combined listing value" hint="Total supply × price, summed across every token — not trading volume.">
-          {formatTokenAmount(stats.totalValue.toString(), 6)} STX
+          {stats.totalValueStx > 0n && <span className="block">{formatTokenAmount(stats.totalValueStx, 6)} STX</span>}
+          {stats.totalValueSats > 0n && <span className="block">{formatTokenAmount(stats.totalValueSats, 8)} sBTC</span>}
         </StatTile>
       </div>
 
@@ -171,7 +187,20 @@ export function TokensExplorer() {
             onClick={() => setCategory(c)}
           />
         ))}
+        <span className="mx-1 hidden w-px self-stretch bg-border-strong sm:block" aria-hidden />
+        <CategoryPill
+          label="Accepts sBTC"
+          icon={Bitcoin}
+          count={sbtcCount}
+          active={sbtcOnly}
+          onClick={() => setSbtcOnly((v) => !v)}
+        />
       </div>
+      {sbtcOnly && (
+        <p className="-mt-1 mb-4 text-xs text-muted-foreground">
+          Showing tokens Bitcoin holders can buy directly with sBTC — prices are shown per token in sBTC.
+        </p>
+      )}
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">

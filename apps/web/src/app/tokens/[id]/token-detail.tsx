@@ -17,6 +17,8 @@ import { SupplyMeter } from "@/components/domain/supply-meter";
 import { AnimatedNumber } from "@/components/domain/animated-number";
 import { formatBlockHeight, formatTokenAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { TokenPrices } from "@/components/domain/token-prices";
+import { SbtcBadge } from "@/components/domain/sbtc-badge";
 import { PurchasePanel } from "./purchase-panel";
 
 export function TokenDetail({ tokenId }: { tokenId: number }) {
@@ -124,6 +126,7 @@ export function TokenDetail({ tokenId }: { tokenId: number }) {
           </div>
           <div className="mt-2 flex items-center gap-2">
             <Badge variant="outline">{token.category}</Badge>
+            <SbtcBadge token={token} />
             {soldOut && <Badge variant="warning">Sold out</Badge>}
             <NetworkIndicator />
           </div>
@@ -162,7 +165,9 @@ export function TokenDetail({ tokenId }: { tokenId: number }) {
                 <Field label="Contract">
                   {contractId ? <AddressDisplay address={contractId} network={token.network} /> : "—"}
                 </Field>
-                <Field label="Price">{formatTokenAmount(token.priceMicroStx, 6)} STX</Field>
+                <Field label="Price">
+                  <TokenPrices token={token} />
+                </Field>
                 <Field label="Total Supply">{formatTokenAmount(token.totalSupply, 0)}</Field>
                 <Field label="Available">{formatTokenAmount(token.availableSupply, 0)}</Field>
                 <Field label="Created at block">{formatBlockHeight(token.createdAtBlock)}</Field>

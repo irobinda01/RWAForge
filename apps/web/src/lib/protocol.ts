@@ -20,15 +20,16 @@ export const PROTOCOL_CONTRACTS: ProtocolContract[] = [
     file: "token-market.clar",
     status: "live",
     title: "Token Market",
-    summary: "Powers both MVP features today: create a token, and buy it with STX. The only contract the frontend actually calls.",
+    summary: "Powers both MVP features today: create a token, and buy it with STX or sBTC. The only contract the frontend actually calls.",
     details: [
       "A single contract holds every created token's metadata and balances in maps, keyed by an auto-incrementing token-id, rather than deploying a fresh contract per token. Creating a token is one wallet signature, not three.",
-      "purchase is atomic: STX moves buyer → creator before any balance changes, and a failed payment rolls back everything in the same transaction — a Clarity VM guarantee, not application logic RWAForge implemented itself.",
+      "A creator prices each token in STX, sBTC, or both, so Bitcoin holders can buy without swapping into STX first. purchase (STX) and purchase-with-sbtc (sBTC) are atomic: payment moves buyer → creator before any balance changes, and a failed payment rolls back everything in the same transaction — a Clarity VM guarantee, not application logic RWAForge implemented itself.",
       "No admin, no escrow, no protocol fee, and no general transfer function — balances only ever change via creation and purchase.",
     ],
     keyFunctions: [
-      "create-token(name, symbol, description, category, total-supply, price)",
+      "create-token(name, symbol, description, category, total-supply, price-stx, price-sbtc)",
       "purchase(token-id, amount)",
+      "purchase-with-sbtc(token-id, amount)",
       "get-token(token-id)",
       "get-balance(token-id, owner)",
     ],
@@ -126,6 +127,6 @@ export const ROADMAP_ITEMS: RoadmapItem[] = [
   { label: "Per-asset deployed SIP-010 tokens", status: "infra-ready", note: "rwa-token.clar template exists, tested, unused by the MVP" },
   { label: "Secondary marketplace / resale", status: "planned", note: "Not started — token-market has no transfer function yet" },
   { label: "DAO governance of the protocol", status: "planned", note: "Not started" },
-  { label: "sBTC-backed / Bitcoin-native settlement", status: "planned", note: "Not started" },
+  { label: "Deeper Bitcoin-native settlement, beyond sBTC payments", status: "planned", note: "sBTC purchases are live today; anything further (e.g. an STX/BTC price oracle) is not started" },
   { label: "Mainnet deployment", status: "planned", note: "Needs a third-party contract audit first" },
 ];

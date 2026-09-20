@@ -1,15 +1,14 @@
 # RWAForge
 
 **A minimal, real, working Stacks Testnet MVP for creating and purchasing
-on-chain tokens.**
+on-chain tokens — payable in STX or sBTC, so Bitcoin holders can take part.**
 
 RWAForge does exactly two things, both on the **Stacks Testnet**, both real
 wallet-signed transactions:
 
-1. **Create** a token — name, symbol, description, category, total supply,
-   price per token.
-2. **Purchase** an available token with real testnet STX, at the price its
-   creator set.
+1. **Create** a token — name, symbol, description, category, total    supply, and a price per token in STX, sBTC, or both.
+2. **Purchase** an available token with real testnet STX or sBTC, at the
+   price its creator set in that asset.
 
 > RWAForge MVP currently provides testnet token creation and purchasing
 > infrastructure. Token creation does not by itself establish legal
@@ -55,16 +54,20 @@ by a numeric `token-id`, rather than deploying a fresh contract per token:
 
 - **`create-token`** — anyone can call this (self-service by design). The
   caller becomes the token's `creator`, and the entire `total-supply` is
-  credited to their own balance for that token-id.
-- **`purchase`** — buys `amount` tokens from a token's creator. Computes
-  `cost = amount × price`, transfers that STX from buyer to creator, and
-  moves `amount` tokens from creator to buyer — atomically. If the STX
-  transfer fails (e.g. insufficient balance), the whole transaction
-  reverts and **no** balance changes; there's no code path where a buyer
-  pays without receiving tokens, or receives tokens without paying.
+  credited to their own balance for that token-id. The creator sets
+  `price-stx` (micro-STX) and/or `price-sbtc` (sats) per token; a price of
+  `0` means that asset isn't accepted, and at least one must be set.
+- **`purchase`** / **`purchase-with-sbtc`** — buy `amount` tokens from a
+  token's creator, paying in STX or sBTC respectively. Computes
+  `cost = amount × price` in that asset, transfers it from buyer to
+  creator, and moves `amount` tokens from creator to buyer — atomically. A
+  token that doesn't accept the chosen asset is rejected up front. If the
+  payment fails (e.g. insufficient balance), the whole transaction reverts
+  and **no** balance changes; there's no code path where a buyer pays
+  without receiving tokens, or receives tokens without paying.
 - **No general `transfer`.** Balances only ever change via creation and
   purchase, matching RWAForge's two supported features exactly.
-- **No admin, no escrow, no protocol fee.** STX moves directly
+- **No admin, no escrow, no protocol fee.** STX or sBTC moves directly
   buyer → creator; there is no privileged account of any kind in this
   contract.
 
@@ -74,6 +77,9 @@ are in [docs/SMART-CONTRACTS.md](docs/SMART-CONTRACTS.md).
 ## Local setup
 
 Requirements: Node.js 20+, npm, and [Clarinet](https://docs.hiro.so/clarinet) 3.x.
+The first `clarinet check` / `npm test` downloads the Testnet sBTC token
+contract into `contracts/.cache/` (network access required), since
+`token-market` calls it.
 
 ```bash
 git clone <this-repo>
@@ -86,7 +92,7 @@ npm install
 ```bash
 cd contracts
 clarinet check      # static analysis
-npm test            # 21 tests for token-market.clar (+ 72 legacy tests for the dormant contracts) via the Clarinet JS SDK + Vitest
+npm test            # 32 tests for token-market.clar (+ 72 legacy tests for the dormant contracts) via the Clarinet JS SDK + Vitest
 ```
 
 ### Frontend
@@ -137,16 +143,19 @@ Clarinet signs and broadcasts locally on your machine.
 
 ## Getting testnet STX
 
-You need Stacks **Testnet** STX, not real STX — nothing in this app costs
-real money. Get some from the
-[Hiro Stacks Testnet faucet](https://explorer.hiro.so/sandbox/faucet?chain=testnet),
-and make sure your wallet (Leather or Xverse) is switched to **Testnet**.
+You need Stacks **Testnet** STX (and testnet sBTC to pay in sBTC), not real
+funds — nothing in this app costs real money. The
+[Hiro Stacks Testnet faucet](https://explorer.hiro.so/sandbox/faucet?chain=testnet)
+can send both, and your wallet (Leather or Xverse) must be switched to
+**Testnet**. Network fees are always paid in STX, even for an sBTC
+purchase.
 
 ## How to create a token
 
 1. Connect your Testnet wallet (top-right **Connect Wallet**).
 2. Go to `/create`, fill in name, symbol, description, category, total
-   supply, and price per token.
+   supply, and a price per token in STX, sBTC, or both (leave a price empty
+   to not accept that asset).
 3. Review the summary and click **Confirm & Create Token** — your wallet
    prompts you to sign a `create-token` transaction.
 4. Once it confirms, you land on a success screen with a link to the
@@ -157,10 +166,12 @@ and make sure your wallet (Leather or Xverse) is switched to **Testnet**.
 
 1. Browse `/tokens` (or open a token's own link) and click into one with
    available supply.
-2. Connect your wallet if you haven't, enter a quantity — the total STX
-   cost is computed live (`amount × price`).
-3. Click **Purchase Tokens** and confirm in your wallet. RWAForge checks
-   your STX balance against the cost before prompting the wallet, so an
+2. Connect your wallet if you haven't, choose **Pay with** STX or sBTC
+   (when the token accepts both), and enter a quantity — the total cost is
+   computed live (`amount × price`) in that asset.
+3. Click **Purchase Tokens** and confirm in your wallet, which shows the
+   exact amount leaving your account. RWAForge checks your balance of the
+   chosen asset against the cost before prompting the wallet, so an
    obviously-doomed transaction never reaches it.
 4. Once confirmed, the page re-fetches the token's available supply and
    your balance directly from the contract — no page refresh needed.
@@ -178,9 +189,12 @@ balances against the chain without trusting RWAForge's frontend at all.
 - **Contracts**: `contracts/tests/token-market.test.ts`, run with
   `npm test` inside `contracts/` (Clarinet JS SDK + Vitest). Covers valid
   creation, invalid supply/price/name/symbol/category, valid purchase
-  (including asserting the STX balance actually moves), insufficient
-  supply, invalid amount, self-purchase, selling out, multiple buyers, and
-  multiple tokens across multiple creators.
+    (including asserting the STX balance actually moves), sBTC-only,
+  STX-only and dual-priced tokens, purchases paid in sBTC (including
+  asserting the sBTC balance moves and that a failed sBTC purchase changes
+  nothing), rejecting an asset a token doesn't accept, insufficient supply,
+  invalid amount, self-purchase, selling out, multiple buyers, and multiple
+  tokens across multiple creators.
 - **Frontend**: `apps/web` — `npm run typecheck`, `npm run lint`,
   `npm test`.
 
@@ -188,8 +202,10 @@ balances against the chain without trusting RWAForge's frontend at all.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full list — in short: one
 shared contract instead of one per token, no resale/transfer after
-purchase, no escrow or protocol fee, no pagination on the token list, and
-STX balance checks that don't account for exact network fees.
+purchase, no escrow or protocol fee, no STX/BTC conversion (a creator sets
+each asset's price independently), a hardcoded per-network sBTC contract
+(swap it before a mainnet deploy), no pagination on the token list, and
+balance checks that don't account for exact network fees.
 
 ## Documentation
 

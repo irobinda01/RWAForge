@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Coins, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowRight, Bitcoin, Coins, ShieldCheck, Wallet } from "lucide-react";
 import { motion } from "motion/react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BitcoinHolders } from "@/components/domain/bitcoin-holders";
 import { Card, CardContent } from "@/components/ui/card";
 import { ContractCard } from "@/components/domain/contract-card";
 import { RoadmapItemRow } from "@/components/domain/roadmap-item-row";
@@ -21,7 +23,7 @@ const STEPS = [
   {
     icon: Coins,
     title: "2. Create or purchase a token",
-    description: "Deploy a token with a name, supply, and price, or buy into one that's already live — each is a single real testnet transaction.",
+    description: "Deploy a token with a name, supply, and a price in STX, sBTC, or both — or buy into one that's already live, paying in whichever you hold. Each is a single real testnet transaction.",
   },
   {
     icon: ShieldCheck,
@@ -77,7 +79,8 @@ export default function HomePage() {
               transition={{ duration: 0.6, ease: "easeOut" }}
               className="text-balance mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
             >
-              Create on-chain tokens and purchase tokenized assets using Stacks Testnet.
+              Create on-chain tokens and buy tokenized assets with STX or Bitcoin-backed sBTC — so
+              Bitcoin holders can take part without leaving Bitcoin behind.
             </motion.p>
             <motion.div
               variants={fadeUp}
@@ -94,7 +97,22 @@ export default function HomePage() {
                 <Link href="/tokens">Explore Tokens</Link>
               </Button>
             </motion.div>
-            <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }} className="mt-8 flex justify-center">
+            <motion.div
+              variants={fadeUp}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="mt-8 flex flex-wrap items-center justify-center gap-2 text-xs"
+            >
+              <span className="text-subtle-foreground">Accepted payment</span>
+              <Badge variant="outline">STX</Badge>
+              <Badge variant="primary">
+                <Bitcoin className="h-3 w-3" aria-hidden />
+                sBTC
+              </Badge>
+              <Link href="#bitcoin-holders" className="font-medium text-primary hover:underline">
+                Why sBTC matters →
+              </Link>
+            </motion.div>
+            <motion.div variants={fadeUp} transition={{ duration: 0.6, ease: "easeOut" }} className="mt-6 flex justify-center">
               <LiveStat />
             </motion.div>
           </motion.div>
@@ -114,7 +132,7 @@ export default function HomePage() {
           </h2>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
             RWAForge does exactly two things on Stacks Testnet: create a token, and buy a token
-            with testnet STX. Every action is a real, wallet-signed transaction you can verify on
+            with testnet STX or sBTC — so Bitcoin holders can pay in Bitcoin-backed sBTC instead of swapping into another asset first. Every action is a real, wallet-signed transaction you can verify on
             the explorer — nothing here is simulated.
           </p>
         </motion.div>
@@ -140,6 +158,10 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <div id="bitcoin-holders" className="scroll-mt-16">
+        <BitcoinHolders />
+      </div>
 
       <section className="border-t border-border bg-surface/40">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
@@ -213,7 +235,7 @@ export default function HomePage() {
               <h3 className="text-xl font-semibold text-foreground">Ready to forge your first token?</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Connect a Stacks Testnet wallet and create a token in minutes. Need testnet STX
-                first? See the faucet link in the docs.
+                or sBTC first? See the faucet link in the docs.
               </p>
             </div>
             <Button asChild size="lg" className="group shrink-0">

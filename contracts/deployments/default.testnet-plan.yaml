@@ -9,10 +9,10 @@ plan:
     - id: 0
       transactions:
         - contract-publish:
-            contract-name: token-market
+            contract-name: token-market-v2
             expected-sender: ST1YBHMDH6ESJ1DBY8MK72XER9BG9646QMCS610PE
-            cost: 1403756
-            path: "contracts\\token-market.clar"
+            cost: 121349
+            path: "contracts/token-market.clar"
             anchor-block-only: true
             clarity-version: 3
       epoch: "3.2"

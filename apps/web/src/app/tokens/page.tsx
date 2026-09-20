@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { TokensExplorer } from "./tokens-explorer";
 
@@ -13,7 +14,9 @@ export default function TokensPage() {
           Testnet. Nothing here is fabricated or hardcoded.
         </p>
       </div>
-      <TokensExplorer />
+      <Suspense fallback={<div className="shimmer h-52 rounded-xl border border-border bg-card" />}>
+        <TokensExplorer />
+      </Suspense>
     </div>
   );
 }
