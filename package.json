@@ -1,0 +1,22 @@
+{
+  "name": "rwaforge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Bitcoin-native infrastructure for tokenized real-world assets on Stacks.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @rwaforge/web",
+    "build": "npm run build -w @rwaforge/web",
+    "lint": "npm run lint -w @rwaforge/web",
+    "typecheck": "npm run typecheck -w @rwaforge/web",
+    "test": "npm run test -w @rwaforge/web",
+    "contracts:check": "cd contracts && clarinet check",
+    "contracts:test": "cd contracts && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

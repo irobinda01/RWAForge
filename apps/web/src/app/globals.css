@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+/*
+  RWAForge design tokens.
+  One deliberate, dark, institutional theme -- not a light/dark toggle.
+  See docs/FRONTEND.md "Design system" for the rationale and usage rules.
+*/
+:root {
+  color-scheme: dark;
+
+  --background: #09090b;
+  --surface: #0f0f12;
+  --surface-raised: #17171b;
+  --card: #131316;
+  --border: #232328;
+  --border-strong: #323238;
+
+  --foreground: #f4f4f3;
+  --muted-foreground: #9a9aa2;
+  --subtle-foreground: #6c6c76;
+
+  --primary: #f7931a;
+  --primary-foreground: #140d02;
+  --primary-muted: #f7931a1a;
+
+  --secondary: #1c1f26;
+  --secondary-foreground: #c7cbd1;
+
+  --accent-blue: #4c8bf5;
+  --success: #34d399;
+  --success-muted: #34d3991a;
+  --warning: #eab308;
+  --warning-muted: #eab3081a;
+  --destructive: #f36a6a;
+  --destructive-muted: #f36a6a1a;
+
+  --ring: #f7931a80;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-muted: var(--primary-muted);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-accent-blue: var(--accent-blue);
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-destructive: var(--destructive);
+  --color-destructive-muted: var(--destructive-muted);
+
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle institutional grid backdrop, used sparingly behind hero/section headers. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Shimmering loading placeholder, used instead of a flat skeleton block. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent);
+  animation: shimmer-sweep 1.8s ease-in-out infinite;
+}
+@keyframes shimmer-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Custom range input (purchase quantity slider). */
+input[type="range"].rwaforge-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  outline: none;
+}
+input[type="range"].rwaforge-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--primary);
+  border: 3px solid var(--primary-foreground);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+input[type="range"].rwaforge-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+input[type="range"].rwaforge-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--primary);
+  border: 3px solid var(--primary-foreground);
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--primary-muted);
+  color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
