@@ -8,16 +8,23 @@ import { CATEGORY_ICONS } from "@/lib/categories";
 import { formatTokenAmount } from "@/lib/format";
 import { TokenPrices } from "./token-prices";
 import { SbtcBadge } from "./sbtc-badge";
+import { cn } from "@/lib/utils";
 
-export function MarketTokenRow({ token }: { token: MarketToken }) {
+export function MarketTokenRow({ token, balance }: { token: MarketToken; balance?: bigint | null }) {
   const available = BigInt(token.availableSupply);
   const total = BigInt(token.totalSupply);
   const soldOut = available === 0n;
+  const owned = balance != null && balance > 0n;
   const Icon = CATEGORY_ICONS[token.category as keyof typeof CATEGORY_ICONS];
 
   return (
     <Link href={`/tokens/${token.id}`} className="group block">
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:border-primary/40 hover:bg-surface-raised sm:flex-row sm:items-center sm:gap-5">
+      <div
+        className={cn(
+          "flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:border-primary/40 hover:bg-surface-raised sm:flex-row sm:items-center sm:gap-5",
+          owned && "border-primary/30",
+        )}
+      >
         <div className="flex items-center gap-3 sm:w-56 sm:shrink-0">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-muted">
             {Icon && <Icon className="h-4 w-4 text-primary" />}
@@ -53,6 +60,13 @@ export function MarketTokenRow({ token }: { token: MarketToken }) {
         <div className="sm:w-40 sm:shrink-0">
           <p className="text-[11px] text-subtle-foreground">Creator</p>
           <AddressDisplay address={token.creator} network={token.network} showExplorerLink={false} />
+        </div>
+
+        <div className="sm:w-24 sm:shrink-0">
+          <p className="text-[11px] text-subtle-foreground">Your shares</p>
+          <p className={cn("font-mono text-sm tabular-nums", owned ? "text-primary" : "text-subtle-foreground")}>
+            {owned ? formatTokenAmount(balance, 0) : "—"}
+          </p>
         </div>
 
         <div className="flex justify-end sm:w-16 sm:shrink-0">

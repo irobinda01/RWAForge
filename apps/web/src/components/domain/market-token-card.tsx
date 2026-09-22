@@ -8,15 +8,22 @@ import { SupplyMeter } from "./supply-meter";
 import { formatTokenAmount } from "@/lib/format";
 import { TokenPrices } from "./token-prices";
 import { SbtcBadge } from "./sbtc-badge";
+import { cn } from "@/lib/utils";
 
-export function MarketTokenCard({ token }: { token: MarketToken }) {
+export function MarketTokenCard({ token, balance }: { token: MarketToken; balance?: bigint | null }) {
   const available = BigInt(token.availableSupply);
   const total = BigInt(token.totalSupply);
   const soldOut = available === 0n;
+  const owned = balance != null && balance > 0n;
 
   return (
     <Link href={`/tokens/${token.id}`} className="group block h-full">
-      <Card className="h-full transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-[0_0_0_1px_rgba(247,147,26,0.15),0_20px_40px_-20px_rgba(0,0,0,0.6)]">
+      <Card
+        className={cn(
+          "h-full transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-[0_0_0_1px_rgba(247,147,26,0.15),0_20px_40px_-20px_rgba(0,0,0,0.6)]",
+          owned && "border-primary/30",
+        )}
+      >
         <CardContent className="flex h-full flex-col gap-4 p-5">
           <div>
             <div className="flex items-start justify-between gap-2">
@@ -33,6 +40,7 @@ export function MarketTokenCard({ token }: { token: MarketToken }) {
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Badge variant="outline">{token.category}</Badge>
               <SbtcBadge token={token} />
+              {owned && <Badge variant="primary">You own {formatTokenAmount(balance, 0)}</Badge>}
             </div>
           </div>
 
@@ -52,9 +60,17 @@ export function MarketTokenCard({ token }: { token: MarketToken }) {
               </div>
             </div>
             <SupplyMeter available={available} total={total} />
-            <div>
-              <p className="text-xs text-subtle-foreground">Creator</p>
-              <AddressDisplay address={token.creator} network={token.network} showExplorerLink={false} />
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-xs text-subtle-foreground">Creator</p>
+                <AddressDisplay address={token.creator} network={token.network} showExplorerLink={false} />
+              </div>
+              {owned && (
+                <div className="text-right">
+                  <p className="text-xs text-subtle-foreground">Your shares</p>
+                  <p className="font-mono tabular-nums text-primary">{formatTokenAmount(balance, 0)}</p>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>

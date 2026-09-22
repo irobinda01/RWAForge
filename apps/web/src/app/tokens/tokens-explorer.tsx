@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bitcoin, LayoutGrid, List, RefreshCw, Search, Sparkles } from "lucide-react";
+import { Bitcoin, LayoutGrid, List, RefreshCw, Search, Sparkles, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import type { LucideIcon } from "lucide-react";
 import type { MarketToken } from "@rwaforge/types";
 import { TOKEN_CATEGORIES } from "@rwaforge/types";
-import { getAllMarketTokens } from "@rwaforge/stacks";
+import { getAllMarketTokens, getMarketBalance } from "@rwaforge/stacks";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +17,7 @@ import { MarketTokenCard } from "@/components/domain/market-token-card";
 import { MarketTokenRow } from "@/components/domain/market-token-row";
 import { AnimatedNumber } from "@/components/domain/animated-number";
 import { acceptsSbtc } from "@/components/domain/sbtc-badge";
+import { useWallet } from "@/components/providers/wallet-provider";
 import { CATEGORY_ICONS } from "@/lib/categories";
 import { formatTokenAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ function matchesQuery(token: MarketToken, query: string): boolean {
 }
 
 export function TokensExplorer() {
+  const { session } = useWallet();
   const [tokens, setTokens] = useState<MarketToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,8 +53,11 @@ export function TokensExplorer() {
   // Deep link from the homepage: /tokens?asset=sbtc opens with the sBTC filter on.
   const searchParams = useSearchParams();
   const [sbtcOnly, setSbtcOnly] = useState(searchParams.get("asset") === "sbtc");
+  const [holdingsOnly, setHoldingsOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("newest");
   const [view, setView] = useState<ViewMode>("grid");
+  const [balances, setBalances] = useState<Map<number, bigint>>(new Map());
+  const [balancesLoading, setBalancesLoading] = useState(false);
 
   async function load(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
@@ -77,7 +82,33 @@ export function TokensExplorer() {
     void load();
   }, []);
 
+  // Reads the connected wallet's share of every listed token so the explorer
+  // can surface "your shares" alongside each listing, not just on the detail page.
+  useEffect(() => {
+    if (!session || tokens.length === 0) {
+      setBalances(new Map());
+      return;
+    }
+    let cancelled = false;
+    setBalancesLoading(true);
+    Promise.all(tokens.map((t) => getMarketBalance(t.id, session.address).then((b) => [t.id, b] as const)))
+      .then((entries) => {
+        if (!cancelled) setBalances(new Map(entries));
+      })
+      .finally(() => {
+        if (!cancelled) setBalancesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, tokens]);
+
   const sbtcCount = useMemo(() => tokens.filter(acceptsSbtc).length, [tokens]);
+
+  const heldCount = useMemo(
+    () => tokens.filter((t) => (balances.get(t.id) ?? 0n) > 0n).length,
+    [tokens, balances],
+  );
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -99,6 +130,7 @@ export function TokensExplorer() {
       if (!matchesQuery(t, query)) return false;
       if (category !== "all" && t.category !== category) return false;
       if (sbtcOnly && !acceptsSbtc(t)) return false;
+      if (holdingsOnly && !((balances.get(t.id) ?? 0n) > 0n)) return false;
       return true;
     });
     return result.sort((a, b) => {
@@ -119,7 +151,13 @@ export function TokensExplorer() {
           return b.id - a.id;
       }
     });
-  }, [tokens, query, category, sort, sbtcOnly]);
+  }, [tokens, query, category, sort, sbtcOnly, holdingsOnly, balances]);
+
+  // If the wallet disconnects while "My holdings" is active, drop back to the
+  // full list instead of silently showing an empty, stale filter.
+  useEffect(() => {
+    if (!session) setHoldingsOnly(false);
+  }, [session]);
 
   if (loading) {
     return (
@@ -159,7 +197,7 @@ export function TokensExplorer() {
 
   return (
     <div>
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className={cn("mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4", session && "lg:grid-cols-5")}>
         <StatTile label="Tokens listed">
           <AnimatedNumber value={tokens.length} />
         </StatTile>
@@ -173,6 +211,17 @@ export function TokensExplorer() {
           {stats.totalValueStx > 0n && <span className="block">{formatTokenAmount(stats.totalValueStx, 6)} STX</span>}
           {stats.totalValueSats > 0n && <span className="block">{formatTokenAmount(stats.totalValueSats, 8)} sBTC</span>}
         </StatTile>
+        {session && (
+          <StatTile label="Tokens you hold" hint="Listed tokens where your connected wallet holds a nonzero share.">
+            {balancesLoading && balances.size === 0 ? (
+              <span className="text-subtle-foreground">…</span>
+            ) : (
+              <>
+                <AnimatedNumber value={heldCount} /> <span className="text-sm text-subtle-foreground">/ {tokens.length}</span>
+              </>
+            )}
+          </StatTile>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -195,10 +244,24 @@ export function TokensExplorer() {
           active={sbtcOnly}
           onClick={() => setSbtcOnly((v) => !v)}
         />
+        {session && (
+          <CategoryPill
+            label="My holdings"
+            icon={Wallet}
+            count={heldCount}
+            active={holdingsOnly}
+            onClick={() => setHoldingsOnly((v) => !v)}
+          />
+        )}
       </div>
       {sbtcOnly && (
         <p className="-mt-1 mb-4 text-xs text-muted-foreground">
           Showing tokens Bitcoin holders can buy directly with sBTC — prices are shown per token in sBTC.
+        </p>
+      )}
+      {holdingsOnly && (
+        <p className="-mt-1 mb-4 text-xs text-muted-foreground">
+          Showing only listed tokens your connected wallet currently holds a share of.
         </p>
       )}
 
@@ -254,7 +317,11 @@ export function TokensExplorer() {
       </p>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={Search} title="No tokens match your filters" description="Try a different search term or category." />
+        <EmptyState
+          icon={Search}
+          title={holdingsOnly ? "You don't hold any listed tokens yet" : "No tokens match your filters"}
+          description={holdingsOnly ? "Tokens you purchase will show up here." : "Try a different search term or category."}
+        />
       ) : view === "grid" ? (
         <motion.div layout className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence mode="popLayout">
@@ -267,7 +334,7 @@ export function TokensExplorer() {
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.3, delay: Math.min(i, 8) * 0.03, ease: "easeOut" }}
               >
-                <MarketTokenCard token={token} />
+                <MarketTokenCard token={token} balance={session ? (balances.get(token.id) ?? 0n) : undefined} />
               </motion.div>
             ))}
           </AnimatePresence>
@@ -284,7 +351,7 @@ export function TokensExplorer() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.02, ease: "easeOut" }}
               >
-                <MarketTokenRow token={token} />
+                <MarketTokenRow token={token} balance={session ? (balances.get(token.id) ?? 0n) : undefined} />
               </motion.div>
             ))}
           </AnimatePresence>
